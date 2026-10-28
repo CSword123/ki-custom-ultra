@@ -29,7 +29,9 @@ is extracted. It needs neither ki1-decomp nor ki1-port.
    files against the original dumps and unpacks them into `data/` (~140 MB).
    Then it recompiles the game code from your U98 and compiles it with the
    bundled gcc (Windows) or yours (Linux), which takes a few seconds. This
-   happens once.
+   happens once. On Windows, Python and gcc run in the background: no
+   console windows open, and their output shows in the editor if a step
+   fails.
 
 The zips contain no game code or data. Everything from the game is made on
 your machine from your own files (see [Building](#building) below). The
