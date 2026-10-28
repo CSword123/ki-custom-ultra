@@ -4,7 +4,7 @@ Editor for custom Killer Instinct (1.5d) ultra combos: pick a fighter, build
 a sequence from that fighter's normal and special animations, keep it under
 the hit cap (default 32), and preview it in the real game.
 
-Works in **both MAME and ki1-port** from the same compiled bytes: a
+Works in **both **MAME** and  **a KI recomp project if you implement .ultrap file support** from the same compiled bytes: a
 30-hit Jago ultra ran frame-identically in both (405 frames compared:
 bank, frame, ultra flag, hit counter).
 
