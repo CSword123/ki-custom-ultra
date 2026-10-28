@@ -1,0 +1,40 @@
+{
+ "fighters": {
+  "3": {
+   "finish": [],
+   "phase1": [
+    {
+     "from": "move",
+     "loops": 2,
+     "move": 69
+    },
+    {
+     "from": "ultra",
+     "index": 1
+    },
+    {
+     "from": "ultra",
+     "index": 2
+    },
+    {
+     "from": "ultra",
+     "index": 3
+    },
+    {
+     "from": "ultra",
+     "index": 4
+    },
+    {
+     "from": "ultra",
+     "index": 5
+    },
+    {
+     "from": "ultra",
+     "index": 6
+    }
+   ]
+  }
+ },
+ "hit_cap": 32,
+ "version": 1
+}

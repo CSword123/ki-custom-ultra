@@ -1,0 +1,8 @@
+-xc++
+-std=c++17
+-Ithird_party/imgui
+-Ithird_party/imgui/backends
+-Ithird_party
+-I/usr/include/SDL3
+-I../ki1-port/include
+-I../ki1-port/src

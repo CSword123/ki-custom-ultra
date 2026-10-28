@@ -1,0 +1,23 @@
+# game data: the user's own (kinst.zip / kinst.chd), never commit
+/data/
+/roms/*
+!/roms/README.txt
+/diff/
+/snap/
+
+# build output (data/gen and build/ can hold code and bytes from Rare's ROM)
+/build/
+/build-win/
+/dist/
+/ki-custom-ultra
+/ki-custom-ultra.exe
+*.o
+*.so
+*.dll
+__pycache__/
+*.pyc
+
+# compiled patches and exports
+*.ultrap
+*.kip
+*.u98

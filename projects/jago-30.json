@@ -1,0 +1,49 @@
+{
+ "fighters": {
+  "1": {
+   "finish": "stock",
+   "phase1": [
+    {
+     "from": "ultra",
+     "index": 0
+    },
+    {
+     "from": "ultra",
+     "index": 1
+    },
+    {
+     "from": "ultra",
+     "index": 0
+    },
+    {
+     "from": "ultra",
+     "index": 1
+    },
+    {
+     "from": "move",
+     "loops": 2,
+     "move": 3,
+     "ticks": 1
+    },
+    {
+     "from": "ultra",
+     "index": 2
+    },
+    {
+     "from": "ultra",
+     "index": 3
+    },
+    {
+     "from": "ultra",
+     "index": 4
+    },
+    {
+     "from": "ultra",
+     "index": 4
+    }
+   ]
+  }
+ },
+ "hit_cap": 32,
+ "version": 1
+}

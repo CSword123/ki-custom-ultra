@@ -1,0 +1,31 @@
+{
+ "version": 1,
+ "hit_cap": 32,
+ "fighters": {
+  "1": {
+   "phase1": [
+    {
+     "from": "ultra",
+     "index": 0
+    },
+    {
+     "from": "ultra",
+     "index": 1
+    },
+    {
+     "from": "ultra",
+     "index": 2
+    },
+    {
+     "from": "ultra",
+     "index": 3
+    },
+    {
+     "from": "ultra",
+     "index": 4
+    }
+   ],
+   "finish": "stock"
+  }
+ }
+}
