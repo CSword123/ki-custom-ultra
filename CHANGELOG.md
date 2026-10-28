@@ -18,3 +18,5 @@ First release.
   system's python3 and gcc.
 - The editor changes to its own folder when started from elsewhere, and
   uses the bundled Python and gcc when they are there.
+- Windows: Python and gcc run without a console window each (**check and
+  unpack**, **build**), instead of opening one window per tool.

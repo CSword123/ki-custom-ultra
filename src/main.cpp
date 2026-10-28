@@ -34,6 +34,7 @@
 #include "nlohmann/json.hpp"
 #include "engine.h"
 #include "preview.h"
+#include "winproc.h"
 
 using json = nlohmann::json;
 
@@ -44,10 +45,6 @@ using json = nlohmann::json;
 static const char *ULTRAP = "build/custom.ultrap";
 static const char *U98 = "build/ki-l15d-ultra.u98";
 static const char *LOADED_ULTRAP = "build/loaded.ultrap";    // a loaded patch, for the preview
-#ifdef _WIN32
-#define popen _popen
-#define pclose _pclose
-#endif
 // where the user puts kinst.zip and kinst.chd (or kinst/kinst.chd)
 static const char *ROMS = "roms";
 
@@ -412,6 +409,12 @@ static void start_preview(App &a, const char *ultrap = ULTRAP);
 static std::string run(const std::string &cmd)
 {
     std::string out;
+#ifdef _WIN32
+    WinProc *p = winproc_start(cmd, out);   // no cmd.exe, no console window
+    if (!p)
+        return "cannot run: " + cmd + " (" + out + ")";
+    int rc = winproc_finish(p, out);
+#else
     FILE *p = popen((cmd + " 2>&1").c_str(), "r");
     if (!p)
         return "cannot run: " + cmd;
@@ -420,6 +423,7 @@ static std::string run(const std::string &cmd)
     while ((n = fread(buf, 1, sizeof buf, p)) > 0)
         out.append(buf, n);
     int rc = pclose(p);
+#endif
     if (rc)
         out += "\n(exit " + std::to_string(rc) + ")";
     return out;
@@ -598,6 +602,35 @@ static bool library_stale()
 static std::string run_all(const std::vector<std::vector<std::string>> &cmds, int jobs)
 {
     std::string errors;
+#ifdef _WIN32
+    // gcc without a console window each (SDL_CreateProcess gives them one)
+    std::vector<std::pair<WinProc *, size_t>> running;
+    size_t next = 0;
+    while (next < cmds.size() || !running.empty()) {
+        while (next < cmds.size() && (int)running.size() < jobs) {
+            std::string err;
+            WinProc *p = winproc_start(winproc_cmdline(cmds[next]), err);
+            if (!p) {
+                for (auto &r : running) {
+                    std::string ignored;
+                    winproc_finish(r.first, ignored);
+                }
+                return "cannot run " + cmds[next][0] + ": " + err;
+            }
+            running.push_back({p, next++});
+        }
+        auto [p, i] = running.front();
+        running.erase(running.begin());
+        std::string out;
+        int code = winproc_finish(p, out);
+        if (code) {
+            std::string line;
+            for (const std::string &a : cmds[i])
+                line += a + " ";
+            errors += line + "\n" + out + "(exit " + std::to_string(code) + ")\n";
+        }
+    }
+#else
     std::vector<std::pair<SDL_Process *, size_t>> running;
     size_t next = 0;
     while (next < cmds.size() || !running.empty()) {
@@ -630,6 +663,7 @@ static std::string run_all(const std::vector<std::vector<std::string>> &cmds, in
         SDL_free(out);
         SDL_DestroyProcess(p);
     }
+#endif
     return errors;
 }
 
@@ -1523,7 +1557,7 @@ int main(int argc, char **argv)
     CATALOG = DATA + "/catalog.json";
     SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "KI1_DATA", DATA.c_str(), true);  // for tools/kiultra.py
 #ifdef _WIN32
-    _putenv_s("KI1_DATA", DATA.c_str());        // _popen takes the C runtime's environment
+    _putenv_s("KI1_DATA", DATA.c_str());        // for the tools run() starts
 #else
     setenv("KI1_DATA", DATA.c_str(), 1);
 #endif

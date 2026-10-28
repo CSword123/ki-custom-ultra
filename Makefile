@@ -82,7 +82,7 @@ LDLIBS   := $(KI1_LIB) $(SDL_LIBS) -lm $(PLAT_LIBS)
 IMGUI_SRC := $(IMGUI)/imgui.cpp $(IMGUI)/imgui_draw.cpp $(IMGUI)/imgui_tables.cpp \
              $(IMGUI)/imgui_widgets.cpp $(IMGUI)/backends/imgui_impl_sdl3.cpp \
              $(IMGUI)/backends/imgui_impl_sdlrenderer3.cpp
-OBJS := $(OBJDIR)/main.o $(OBJDIR)/preview.o $(OBJDIR)/engine.o $(IMGUI_SRC:$(IMGUI)/%.cpp=$(OBJDIR)/imgui/%.o)
+OBJS := $(OBJDIR)/main.o $(OBJDIR)/preview.o $(OBJDIR)/winproc.o $(OBJDIR)/engine.o $(IMGUI_SRC:$(IMGUI)/%.cpp=$(OBJDIR)/imgui/%.o)
 
 PYTHON ?= python3
 
@@ -144,7 +144,7 @@ ifeq ($(TARGET),windows)
 	$(if $(SDL_DLL),cp $(SDL_DLL) $(dir $@),@echo "note: put SDL3.dll next to $@")
 endif
 
-$(OBJDIR)/%.o: src/%.cpp src/preview.h src/engine.h VERSION
+$(OBJDIR)/%.o: src/%.cpp src/preview.h src/engine.h src/winproc.h VERSION
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
