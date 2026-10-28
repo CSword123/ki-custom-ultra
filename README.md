@@ -4,7 +4,7 @@ Editor for custom Killer Instinct (1.5d) ultra combos: pick a fighter, build
 a sequence from that fighter's normal and special animations, keep it under
 the hit cap (default 32), and preview it in the real game.
 
-Works in **both **MAME** and  **a KI recomp project if you implement .ultrap file support** from the same compiled bytes: a
+Works in both **MAME** and **a KI recomp project if you implement .ultrap file support** from the same compiled bytes: a
 30-hit Jago ultra ran frame-identically in both (405 frames compared:
 bank, frame, ultra flag, hit counter).
 
@@ -209,7 +209,8 @@ back into an editable project.
 - **Port:** `--patch FILE.ultrap` (`KIPATCH1`: address, length, bytes records)
   writes the script and the pointer after loading the segments.
   `.ultrap` was `.kip` before 0.01; the bytes are the same, so either
-  extension loads.
+  extension loads. The format, for other ports and tools that want to load
+  these files: [docs/ultrap-format.md](docs/ultrap-format.md).
 - **MAME:** `kiultra.py --u98` unpacks the stock U98 with ki1-decomp's
   `tools/u98pack.py`, patches seg1, adds the scripts as a fourth packed
   segment at `0x80020000`, and splices the stream back in.
