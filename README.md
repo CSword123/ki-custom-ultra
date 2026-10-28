@@ -8,12 +8,135 @@ Works in both **MAME** and **a KI recomp project if you implement .ultrap file s
 30-hit Jago ultra ran frame-identically in both (405 frames compared:
 bank, frame, ultra flag, hit counter).
 
+## Download
+
+The [releases](https://github.com/CSword123/ki-custom-ultra/releases) have
+a zip per system. Each one is a `ki-custom-ultra/` folder that runs where it
+is extracted. It needs neither ki1-decomp nor ki1-port.
+
+| zip | has | needs |
+|---|---|---|
+| `ki-custom-ultra-VERSION-windows-x64.zip` | `ki-custom-ultra.exe`, `SDL3.dll`, `python/` (embeddable Python 3.14), `mingw64/` (the part of MinGW-w64 gcc 16 that compiles the game code) | Windows 10 or 11, 64-bit |
+| `ki-custom-ultra-VERSION-linux-x64.zip` | `ki-custom-ultra`, `lib/libSDL3.so.0` | x86-64, a recent glibc, `python3` and `gcc` (or `$KI_CC`, e.g. clang) |
+
+1. Extract the zip.
+2. Put your own MAME `kinst` set in `ki-custom-ultra/roms/`: `kinst.zip` and
+   `kinst.chd` (or `kinst/kinst.chd`). See `roms/README.txt`.
+3. Start `ki-custom-ultra.exe` (Windows) or `./ki-custom-ultra` (Linux). It
+   can be started from anywhere: it goes to its own folder.
+4. On the first start, press **check and unpack**. The editor checks the
+   files against the original dumps and unpacks them into `data/` (~140 MB).
+   Then it recompiles the game code from your U98 and compiles it with the
+   bundled gcc (Windows) or yours (Linux), which takes a few seconds. This
+   happens once.
+
+The zips contain no game code or data. Everything from the game is made on
+your machine from your own files (see [Building](#building) below). The
+licenses of the bundled parts are in `THIRD-PARTY.txt`.
+
+## What the editor does
+
+**Fighter and project**
+- The **fighter** drop-down covers the ten fighters with an ultra (Eyedol
+  has none). **reset to stock** puts back the fighter's original ultra.
+- The **hit cap** (default 32, `-` / `+`) and a bar show the hitboxes the
+  ultra has against the cap.
+- Projects are JSON files (`projects/custom.json` by default). The bottom
+  bar has **browse...**, **save** and **load**. One project holds a custom
+  ultra for any number of fighters.
+
+**The move palette** (left)
+- The tabs are **Stock** (the pieces of the stock ultra), **Openers**,
+  **Normals**, **Specials**, **Linkers**, **Enders** and **Others** (see
+  [Move names](#move-names)). Moves are named from their commands, and the
+  specials from the MKKomplete move list.
+- The filter matches the bank, move name or input.
+- Double-click a move to add it to the **build-up** or the **finish**,
+  whichever radio button is selected.
+- Moves with a re-press window list their other swings under them
+  ("+ swing B").
+- **[shadow]** marks the after-image versions.
+- **[crashes]** marks the 50 pieces known to crash the game. They are greyed
+  out and cannot be added (see [Pieces that crash the
+  game](#pieces-that-crash-the-game)).
+
+**The ultra** (middle)
+- There are two lists: **build-up** (ultra flag 1, after the stock prologue)
+  and **finish** (ultra flag 2). Or tick **stock finish** to keep the
+  fighter's own finish.
+- Each piece is a row with its hit count and these controls:
+  - **record**: the hit record its hits use (default, the move's own, or
+    one of the stock ultra's light / heavy / lifting records)
+  - **loops**: how many times it plays
+  - **1 tick**: one tick per frame, as the stock ultras play
+  - **chain**: loops follow the re-press window, as when the button is
+    pressed again
+  - **full**: keep the follow-through after the last hit
+  - **banks**: follow the move through its bank switches
+  - **2x**: every other frame, which is on by default for morph finishes
+  - the swing to start at, then **up** / **dn** to reorder and **x** to
+    remove
+  - **clear** empties a whole list.
+- **keep P2 standing until the last hits** (on by default) cuts
+  follow-throughs, swaps lifting records for light ones and drops hold
+  releases. The goal is that only the last segment knocks P2 down (see
+  [Keeping P2 standing](#keeping-p2-standing)).
+- **compiled script** shows the script the project compiles to, readable.
+
+**Building**
+- **compile** writes `build/custom.ultrap`, the patch for ki1-port
+  (`--patch`). Its format is in
+  [docs/ultrap-format.md](docs/ultrap-format.md).
+- **build U98 (MAME)** writes `build/ki-l15d-ultra.u98`: your stock U98 with
+  the ultra in it, for MAME.
+- Neither builds while a project has a crashing piece in it.
+
+**The preview** (right)
+- **preview** compiles the project and plays the current fighter's ultra in
+  the real game. **preview stock** plays the original.
+- **vs** picks P2 (default Fulgore). This matters for finishes that morph
+  into the opponent.
+- The controls are play / pause, `|<`, step `<` `>`, 0.25x-2x, **loop**,
+  **mute** and **stop**. The timeline can be scrubbed. Sound plays at 1x.
+- The timeline is coloured by phase (blue build-up, orange finish), with a
+  tick per hit and a gold mark at the "Ultra Combo!" call. Red marks where
+  P2 is off the ground or where the combo dropped.
+- The status line shows the ultra flag, P1's bank and frame, the hit
+  counter and whether P2 is in the air. Under it the editor lists when P2
+  was lifted, when the combo dropped or ended, and when the call came.
+- The first preview of a fighter (or fighter/opponent pair) takes ~4-6 s.
+  Later ones stream in about 3 s, and playback starts at once.
+- If a piece crashes the game, the editor says at which frame and why. The
+  next preview starts the game again.
+
+**Loading a patch made elsewhere**
+- **load patch** (or `--load FILE`) previews an `.ultrap`, a U98 built for
+  MAME, or a `kinst.zip` that has one.
+- It tells a stock U98 (green) from a modified one (orange), lists the
+  fighters whose ultra changed with their hit counts, and has a
+  **preview NAME** button for each (see [Loading a patch made
+  elsewhere](#loading-a-patch-made-elsewhere)).
+
+**Command-line options**
+- `--version`
+- `--setup`: check and unpack `roms/` without the GUI
+- `--load FILE`
+- `--project P`, `--fighter N`, `--opponent N`, `--tab NAME`: start with
+  these selected
+- `--shot FILE.bmp [--preview-frame N]`: render, save a screenshot and exit
+- Environment: `KI1_DATA` (the data folder), `KI_PYTHON`, `KI_CC`
+
+## Building
+
 ```
 make -C ../ki1-decomp disasm        # building only: asm/seg0, for seg0's function starts
 make run                            # the editor (Dear ImGui + SDL3)
 make dist                           # dist/ki-custom-ultra/: what can be handed out
+make release                        # dist/ki-custom-ultra-VERSION-{windows,linux}-x64.zip
 ```
 
+Building needs ki1-port and ki1-decomp next to this folder. A built copy
+does not: `make dist` and `make release` copy what it uses from them.
 The program has **no game code or data in it**: `make` links ki1-port's
 runtime alone (`make -C ../ki1-port lib`, `libki1.a`: the hardware, the
 preview server, the DCS interpreter). The game code is recompiled and
@@ -25,7 +148,7 @@ compiled on the player's machine from the user's own U98, at setup:
    into C in `data/gen/` (0.4 s).
 2. The player's C compiler builds it into the game library,
    `data/gen/game.dll` (Windows) or `game.so`: **gcc from MinGW-w64 on
-   Windows** (winlibs.com, or MSYS2's `mingw-w64-ucrt-x86_64-gcc`; its
+   Windows** (the release's `mingw64/`, winlibs.com, or MSYS2's `mingw-w64-ucrt-x86_64-gcc`; its
    `bin` folder on PATH), gcc on Linux, or whatever `$KI_CC` names (clang
    works). One compiler process per CPU core, ki1-port's flags for its
    generated code; ~2 s on 16 cores, ~10 s on one. Without a compiler the
@@ -70,15 +193,37 @@ each) and none of the recompiled functions (`f_88...`; ki1-port's binary
 has all 631). Players need Python 3 (setup, the compiler) and a C
 compiler (gcc / MinGW-w64).
 
+`make release` (`tools/release.sh windows|linux|all`) makes the release
+zips from `make dist`. It adds the parts that make them stand alone:
+- **Windows**: `SDL3.dll`, python.org's embeddable Python in `python/`
+  (with `tools/` and `build/py/` in its `._pth`, since it does not add a
+  script's folder to `sys.path`), and `mingw64/`. That folder holds only
+  the part of a winlibs.com MinGW-w64 gcc (UCRT) that compiles the game
+  code: gcc, cc1, collect2, as and ld with their DLLs, libgcc, the C headers
+  the standard C headers pull in, and the CRT and import libraries that
+  gcc's link spec names for a DLL. It is ~80 MB, against ~1 GB for the
+  whole toolchain.
+- **Linux**: `lib/libSDL3.so.0`, found through the program's
+  `$ORIGIN/lib` rpath. The C++ runtime is linked in.
+
+The editor uses `python\python.exe` and `mingw64\bin\gcc.exe` when they
+are there and `KI_PYTHON` / `KI_CC` are not set. When started from another
+folder, it changes to its own. Downloads are kept in
+`build/release-cache/` and checked against pinned SHA-256s. The script
+refuses to zip a folder that has a data folder, generated code, a game
+library, a catalog, a `.bin`, an `.ultrap` or a U98 in it.
+
 **Windows**: `make windows SDL3_DIR=/path/SDL3-3.x.y/x86_64-w64-mingw32`
 cross-builds `build-win/ki-custom-ultra.exe` (+ SDL3.dll) with MinGW-w64 or
 llvm-mingw (`g++` and `gcc`; ki1-port's library is cross-built with it;
-the editor itself is untested on Windows since the game code moved to the
-player's machine; a game.dll cross-built with MinGW gcc exports only
-`kcu_game`);
+a game.dll cross-built with MinGW gcc exports only `kcu_game`; the
+release zip, run under wine 10 from a fresh folder, set up from the ROMs,
+compiled game.dll with its own gcc and previewed Jago's ultra with the
+same frames, hits and call as the Linux build);
 in an MSYS2 UCRT64 shell plain `make` does. Run it from this folder (it
 uses `build/`, `projects/`, `roms/`, `data/` and `tools/`); it runs
-`tools/kiultra.py` with `$KI_PYTHON`, else `python`. The live preview works
+`tools/kiultra.py` with `$KI_PYTHON`, else `python\python.exe` from the
+release, else `python`. The live preview works
 there too (ki1-port's preview server keeps in-memory snapshots, no fork).
 
 Command line, same thing without the GUI:
@@ -355,9 +500,8 @@ to) and the stock ultra in the compiler's segments.
 ## Next
 
 - Cap on the game's hit count, not only hitbox ops (calibrate from previews).
-- Choice of opponent (P2 is always Fulgore) and stage.
+- Choice of stage.
 - The test bots (`KI1_ULTRA_BOT`, `ultrabot.lua`) still only play Jago; the
   preview server covers all ten fighters.
-- Frame ranges inside a move segment (skip startup frames), hit record
-  choice per segment, and sounds.
+- Frame ranges inside a move segment (skip startup frames), and sounds.
 - First-hit damage: the first ultra hit took P2 from 24 points to 0.

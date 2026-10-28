@@ -12,6 +12,7 @@
 #                   tools/catalog.py, kiultra.py or movenames.py change)
 #   make dist       dist/ki-custom-ultra/: the program and its tools, no game
 #                   data (players add kinst.zip and kinst.chd in roms/)
+#   make release    the release zips for Windows and Linux (tools/release.sh)
 #   make windows    cross-build build-win/ki-custom-ultra.exe (+ SDL3.dll) with
 #                   MinGW-w64 or llvm-mingw:
 #                     make windows SDL3_DIR=/path/SDL3-x.y.z/x86_64-w64-mingw32
@@ -67,7 +68,9 @@ CC       ?= cc
 PORT_BUILD := build
 SDL_CFLAGS := $(shell pkg-config --cflags sdl3)
 SDL_LIBS   := $(shell pkg-config --libs sdl3)
-PLAT_LIBS :=
+# the C++ runtime linked in, and the release's own libSDL3.so.0 in lib/
+# found first (make release-linux)
+PLAT_LIBS := -static-libgcc -static-libstdc++ -Wl,-rpath,'$$ORIGIN/lib'
 endif
 
 CXXFLAGS := -O2 -g -std=c++17 -Wall -Wextra -I$(IMGUI) -I$(IMGUI)/backends -Ithird_party \
@@ -99,7 +102,7 @@ RECOMP_FILES := $(RECOMP)/recomp.py $(RECOMP)/functions.txt \
                 $(patsubst $(KI1_PORT)/include/%,$(RECOMP)/include/%,$(wildcard $(KI1_PORT)/include/ki1/*.h)) \
                 $(RECOMP)/glue.c $(RECOMP)/include/kcu_host.h
 
-.PHONY: all run catalog clean windows dist FORCE
+.PHONY: all run catalog clean windows dist release release-windows release-linux FORCE
 all: $(PROG) $(PY_COPIES) $(RECOMP_FILES)
 
 $(RECOMP)/recomp.py: $(KI1_PORT)/tools/recomp.py
@@ -166,7 +169,7 @@ windows:
 # what can be handed out: the program, its Python tools, the recompiler and
 # roms/ (empty but for its README); no game code or data, segments, catalog
 # or compiled patches
-DIST := dist/ki-custom-ultra
+DIST ?= dist/ki-custom-ultra
 dist: $(PROG) $(PY_COPIES) $(RECOMP_FILES)
 	rm -rf $(DIST)
 	mkdir -p $(DIST)/tools $(DIST)/build/py $(DIST)/roms $(DIST)/projects
@@ -177,6 +180,16 @@ dist: $(PROG) $(PY_COPIES) $(RECOMP_FILES)
 	cp $(PY_COPIES) $(DIST)/build/py/
 	cp roms/README.txt $(DIST)/roms/
 	cp README.md VERSION $(DIST)/
+
+# the release zips, dist/ki-custom-ultra-VERSION-{windows,linux}-x64.zip
+# (tools/release.sh): make dist, plus for Windows SDL3.dll, an embeddable
+# Python and the part of a MinGW-w64 gcc that compiles the game code; for
+# Linux libSDL3.so.0 (Python 3 and gcc are the player's)
+release: release-windows release-linux
+release-windows:
+	tools/release.sh windows
+release-linux:
+	tools/release.sh linux
 
 clean:
 	rm -rf build/obj build-win ki-custom-ultra dist

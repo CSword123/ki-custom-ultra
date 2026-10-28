@@ -22,6 +22,11 @@
 #include <string>
 #include <thread>
 #include <vector>
+#ifdef _WIN32
+#include <direct.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -46,13 +51,25 @@ static const char *LOADED_ULTRAP = "build/loaded.ultrap";    // a loaded patch, 
 // where the user puts kinst.zip and kinst.chd (or kinst/kinst.chd)
 static const char *ROMS = "roms";
 
-// the Python that runs tools/kiultra.py: $KI_PYTHON, else python3 (python
-// on Windows, where python3 is often missing)
+// The Windows release carries its own Python and gcc (MinGW-w64) next to
+// the program; they are used when present and not overridden
+#ifdef _WIN32
+static const char *BUNDLED_PYTHON = "python\\python.exe";
+static const char *BUNDLED_CC = "mingw64\\bin\\gcc.exe";
+#endif
+static bool bundled(const char *p)
+{
+    SDL_PathInfo info;
+    return SDL_GetPathInfo(p, &info) && info.type == SDL_PATHTYPE_FILE;
+}
+
+// the Python that runs tools/kiultra.py: $KI_PYTHON, else the bundled one
+// (Windows), else python3 (python on Windows, where python3 is often missing)
 static std::string python()
 {
     const char *p = getenv("KI_PYTHON");
 #ifdef _WIN32
-    return p ? p : "python";
+    return p ? p : bundled(BUNDLED_PYTHON) ? BUNDLED_PYTHON : "python";
 #else
     return p ? p : "python3";
 #endif
@@ -540,19 +557,25 @@ static bool code_stale()
 }
 
 // The game library: the recompiled code and build/recomp/glue.c compiled
-// with the player's C compiler, $KI_CC, else gcc (on Windows MinGW-w64's,
-// with its bin folder on PATH), again whenever what it is made from changes.
+// with the player's C compiler, $KI_CC, else the bundled gcc (Windows), else
+// gcc (on Windows MinGW-w64's, with its bin folder on PATH), again whenever
+// what it is made from changes.
 static std::string compiler()
 {
     const char *cc = getenv("KI_CC");
+#ifdef _WIN32
+    if (!(cc && *cc) && bundled(BUNDLED_CC))
+        return BUNDLED_CC;
+#endif
     return cc && *cc ? cc : "gcc";
 }
 
 static const char *COMPILER_HELP =
 #ifdef _WIN32
-    "The game code is compiled on this computer with gcc from MinGW-w64: install it (e.g. the "
-    "UCRT build from winlibs.com, or MSYS2's mingw-w64-ucrt-x86_64-gcc) and put its bin folder "
-    "on PATH, or set KI_CC to its gcc.exe; then start the editor again.";
+    "The game code is compiled on this computer with gcc from MinGW-w64. The release zip has it "
+    "in mingw64\\: extract the whole zip again. Or install it (e.g. the UCRT build from "
+    "winlibs.com, or MSYS2's mingw-w64-ucrt-x86_64-gcc) and put its bin folder on PATH, or set "
+    "KI_CC to its gcc.exe; then start the editor again.";
 #else
     "The game code is compiled on this computer with gcc: install it (e.g. the gcc package) or "
     "set KI_CC to another C compiler (clang works); then start the editor again.";
@@ -1462,8 +1485,33 @@ static void ui(App &a)
     ImGui::End();
 }
 
+// Run from the program's folder (it uses build/, data/, projects/, roms/ and
+// tools/ relative to it) when started from somewhere else, e.g. a file
+// manager or a desktop shortcut; and with the bundled gcc's folder on PATH
+static void enter_program_folder()
+{
+    const char *base = SDL_GetBasePath();
+    if (!bundled("tools/kiultra.py") && base && bundled((std::string(base) + "tools/kiultra.py").c_str()))
+#ifdef _WIN32
+        _chdir(base);
+#else
+        chdir(base);
+#endif
+#ifdef _WIN32
+    if (bundled(BUNDLED_CC) && !getenv("KI_CC")) {
+        char *cwd = SDL_GetCurrentDirectory();
+        const char *path = getenv("PATH");
+        std::string p = std::string(cwd ? cwd : "") + "mingw64\\bin;" + (path ? path : "");
+        SDL_free(cwd);
+        SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "PATH", p.c_str(), true);
+        _putenv_s("PATH", p.c_str());
+    }
+#endif
+}
+
 int main(int argc, char **argv)
 {
+    enter_program_folder();
     if (argc > 1 && !strcmp(argv[1], "--version")) {
         printf("ki-custom-ultra %s\n", KCU_VERSION);
         return 0;
