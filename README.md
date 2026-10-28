@@ -4,7 +4,8 @@ Editor for custom Killer Instinct (1.5d) ultra combos: pick a fighter, build
 a sequence from that fighter's normal and special animations, keep it under
 the hit cap (default 32), and preview it in the real game.
 
-This is a mostly **vibe coded** from someone with **beginner-intermediate** experience making software. If you are not comfortable using the software or encountering bugs, do **NOT** try it. Works in both **MAME** and **a KI recomp project if you implement .ultrap file support** from the same compiled bytes: a
+This is a mostly **vibe coded** project from someone with **beginner-intermediate** experience making software and Claude implementing functionality. If you are not comfortable using this type of software or encountering bugs, do **NOT** try it (if you like the concept, you are totally welcome to create your own version).
+Works in both **MAME** and **a KI recomp project if you implement .ultrap file support** from the same compiled bytes: a
 30-hit Jago ultra ran frame-identically in both (405 frames compared:
 bank, frame, ultra flag, hit counter).
 
@@ -127,14 +128,13 @@ licenses of the bundled parts are in `THIRD-PARTY.txt`.
 - Environment: `KI1_DATA` (the data folder), `KI_PYTHON`, `KI_CC`
 
 ## Building
-
+The project is made using a **personal** PC decomp and recomp of KI1 arcade which I would not like to provide currently.
 ```
 make -C ../ki1-decomp disasm        # building only: asm/seg0, for seg0's function starts
 make run                            # the editor (Dear ImGui + SDL3)
 make dist                           # dist/ki-custom-ultra/: what can be handed out
 make release                        # dist/ki-custom-ultra-VERSION-{windows,linux}-x64.zip
 ```
-
 Building needs ki1-port and ki1-decomp next to this folder. A built copy
 does not: `make dist` and `make release` copy what it uses from them.
 The program has **no game code or data in it**: `make` links ki1-port's
