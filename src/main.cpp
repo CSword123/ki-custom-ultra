@@ -406,6 +406,8 @@ static void start_preview(App &a, const char *ultrap = ULTRAP);
 
 // --- running the tools ------------------------------------------------------
 
+static std::string quote(const std::string &s) { return "\"" + s + "\""; }
+
 static std::string run(const std::string &cmd)
 {
     std::string out;
@@ -453,11 +455,11 @@ static bool compile(App &a, bool u98)
     }
     if (!save_project(a))
         return false;
-    std::string cmd = python() + " tools/kiultra.py build " + a.project + " --ultrap " + ULTRAP;
+    std::string cmd = python() + " tools/kiultra.py build " + quote(a.project) + " --ultrap " + ULTRAP;
     if (u98)
         cmd += std::string(" --u98 ") + U98;
     a.log = run(cmd);
-    a.dump = run(python() + " tools/kiultra.py dump " + a.project);
+    a.dump = run(python() + " tools/kiultra.py dump " + quote(a.project));
     return a.log.find("(exit") == std::string::npos;
 }
 
@@ -467,7 +469,7 @@ static bool compile(App &a, bool u98)
 // one's) ultra is previewed with it
 static bool load_patch(App &a)
 {
-    std::string p = a.patch, cmd = python() + " tools/kiultra.py import \"" + p + "\"";
+    std::string p = a.patch, cmd = python() + " tools/kiultra.py import " + quote(p);
     a.log = run(cmd + " --ultrap " + LOADED_ULTRAP);
     a.patch_fighters.clear();
     a.patch_u98 = a.log.find("ki-l15d.u98: stock") != std::string::npos      ? "stock"
@@ -522,7 +524,6 @@ static SDL_Time mtime(const std::string &p)
     return SDL_GetPathInfo(p.c_str(), &info) ? info.modify_time : 0;
 }
 
-static std::string quote(const std::string &s) { return "\"" + s + "\""; }
 
 static std::string roms_zip()
 {
