@@ -1,5 +1,5 @@
 # ki-custom-ultra
-
+<img width="1602" height="937" alt="ki-custom-ultra-editor" src="https://github.com/user-attachments/assets/b21febd0-7937-4a26-a12e-3be63defefe6" />
 Editor for custom Killer Instinct (1.5d) ultra combos: pick a fighter, build
 a sequence from that fighter's normal and special animations, keep it under
 the hit cap (default 32), and preview it in the real game.
