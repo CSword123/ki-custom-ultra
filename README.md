@@ -4,7 +4,7 @@ Editor for custom Killer Instinct (1.5d) ultra combos: pick a fighter, build
 a sequence from that fighter's normal and special animations, keep it under
 the hit cap (default 32), and preview it in the real game.
 
-Works in both **MAME** and **a KI recomp project if you implement .ultrap file support** from the same compiled bytes: a
+This is a mostly **vibe coded** from someone with **beginner-intermediate** experience making software. If you are not comfortable using the software or encountering bugs, do **NOT** try it. Works in both **MAME** and **a KI recomp project if you implement .ultrap file support** from the same compiled bytes: a
 30-hit Jago ultra ran frame-identically in both (405 frames compared:
 bank, frame, ultra flag, hit counter).
 
@@ -498,10 +498,4 @@ move (bank, kind, inputs, the steps and hit count a move segment compiles
 to) and the stock ultra in the compiler's segments.
 
 ## Next
-
-- Cap on the game's hit count, not only hitbox ops (calibrate from previews).
-- Choice of stage.
-- The test bots (`KI1_ULTRA_BOT`, `ultrabot.lua`) still only play Jago; the
-  preview server covers all ten fighters.
-- Frame ranges inside a move segment (skip startup frames), and sounds.
-- First-hit damage: the first ultra hit took P2 from 24 points to 0.
+- Bug fixes
