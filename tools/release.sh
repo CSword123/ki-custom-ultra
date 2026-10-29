@@ -4,6 +4,7 @@
 # that runs where it is extracted, without ki1-decomp or ki1-port.
 #
 #   tools/release.sh windows|linux|all
+#   tools/release.sh patch [FROM]
 #
 # Both are `make dist` (the program, tools/, build/py/ and build/recomp/: the
 # recompiler and what it needs) plus:
@@ -15,12 +16,25 @@
 #            includes, the CRT and import libraries a DLL links with).
 #            The editor uses them when they are there (src/main.cpp).
 #   linux    lib/libSDL3.so.0 (found through the program's $ORIGIN/lib
-#            rpath). Python 3 and gcc are the player's.
+#            rpath). Python 3 and gcc are the player's. The program, SDL3
+#            and ki1-port's libki1.a are built in Debian 13 (trixie), so
+#            the zip needs its glibc (2.41) or newer, not this machine's:
+#            Debian's official image (docker.io library/debian, the layer
+#            below) unpacked into build/debian-root/ and run with bwrap as
+#            root of a user namespace, with apt's build packages added once.
+#            SDL3 is built there from source (into build/debian/sdl3/), the
+#            program into build/debian/ and libki1.a into ki1-port's
+#            build-debian/.
+#
+# patch makes dist/ki-custom-ultra-VERSION-patch.zip: the files of this
+# version's two release folders (made first, by windows and linux) that are
+# new or changed since FROM's zips (default the VERSION before, from
+# CHANGELOG.md), in one ki-custom-ultra/ folder to extract over a FROM folder
+# of either system. Files gone since FROM are listed in its PATCH.txt.
 #
 # What it downloads is kept in build/release-cache/ and checked against the
 # SHA-256 below. SDL3_DIR (default ../SDL3-3.4.18/x86_64-w64-mingw32) is the
-# mingw folder of SDL's SDL3-devel-*-mingw release; SDL3_SO (default the
-# system's) the libSDL3.so.0 copied for Linux.
+# mingw folder of SDL's SDL3-devel-*-mingw release.
 #
 # No game code or data goes in: the zips are checked for data/, gen/,
 # game.so/.dll, catalog.json, .ultrap and .u98 files before they are made.
@@ -35,6 +49,19 @@ PY_VER=3.14.10
 PY_ZIP=python-$PY_VER-embed-amd64.zip
 PY_URL=https://www.python.org/ftp/python/$PY_VER/$PY_ZIP
 PY_SHA=90905e64a840557d8c1bc4f5b74db3d7ee85e3ffb217611cac1c7813acea4159
+
+DEB_LAYER=a1d156b0aab5fb07d822a7f4681f6d3ed1689073531c34f5668818c233633f11   # debian:trixie (13.7)
+DEB_ROOT=build/debian-root
+DEB_PKGS="build-essential pkg-config cmake ninja-build python3 ca-certificates libx11-dev libxext-dev
+    libxrandr-dev libxcursor-dev libxi-dev libxss-dev libxfixes-dev libxtst-dev libxkbcommon-dev libwayland-dev
+    wayland-protocols libdecor-0-dev libegl-dev libgl-dev libgles-dev libvulkan-dev libasound2-dev libpulse-dev
+    libpipewire-0.3-dev libjack-jackd2-dev libdrm-dev libgbm-dev libudev-dev libdbus-1-dev libibus-1.0-dev
+    libusb-1.0-0-dev"
+
+SDL_VER=3.4.2
+SDL_TGZ=SDL3-$SDL_VER.tar.gz
+SDL_URL=https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VER/$SDL_TGZ
+SDL_SHA=ef39a2e3f9a8a78296c40da701967dd1b0d0d6e267e483863ce70f8a03b4050c
 
 GCC_VER=16.2.0
 GCC_REL=16.2.0posix-23.1.3-14.0.0-ucrt-r3
@@ -121,12 +148,54 @@ windows() {
     zip_up $d windows
 }
 
+# a command in the Debian root as root, the folder above this one at /work
+in_debian() {
+    bwrap --bind $DEB_ROOT / --dev /dev --proc /proc --tmpfs /tmp --ro-bind /etc/resolv.conf /etc/resolv.conf \
+        --bind "$(cd .. && pwd)" /work --chdir /work/"$(basename "$PWD")" --unshare-user --uid 0 --gid 0 \
+        --setenv PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin --setenv HOME /root \
+        --setenv DEBIAN_FRONTEND noninteractive "$@"
+}
+
+debian_root() {     # build/debian-root/ with the build packages, once
+    [ -f $DEB_ROOT/.ready ] && return 0
+    f=debian-trixie-$DEB_LAYER.tar.gz
+    if [ ! -f "$CACHE/$f" ]; then
+        mkdir -p $CACHE
+        tok=$(curl -fsSL "https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/debian:pull" |
+              sed 's/.*"token":"\([^"]*\)".*/\1/')
+        curl -fL -H "Authorization: Bearer $tok" -o "$CACHE/$f.part" \
+            "https://registry-1.docker.io/v2/library/debian/blobs/sha256:$DEB_LAYER"
+        mv "$CACHE/$f.part" "$CACHE/$f"
+    fi
+    echo "$DEB_LAYER  $CACHE/$f" | sha256sum -c --quiet || { echo "release.sh: $f does not match its SHA-256" >&2; exit 1; }
+    rm -rf $DEB_ROOT
+    mkdir -p $DEB_ROOT
+    tar -xzf "$CACHE/$f" -C $DEB_ROOT --no-same-owner --exclude='dev/*'
+    echo 'APT::Sandbox::User "root";' > $DEB_ROOT/etc/apt/apt.conf.d/99sandbox
+    in_debian sh -c "apt-get update -q && apt-get install -y -q --no-install-recommends $(echo $DEB_PKGS)" >/dev/null
+    touch $DEB_ROOT/.ready
+}
+
 linux() {
-    so=${SDL3_SO:-$(readlink -f "$(pkg-config --variable=libdir sdl3)/libSDL3.so.0")}
+    command -v bwrap >/dev/null || { echo "release.sh: no bwrap (bubblewrap) for the Debian build" >&2; exit 1; }
+    fetch "$SDL_URL" "$SDL_TGZ" "$SDL_SHA"
+    debian_root
+    sdl=build/debian/sdl3
+    if [ ! -f $sdl/lib/libSDL3.so.0 ]; then
+        in_debian sh -c "set -e; tar -xzf $CACHE/$SDL_TGZ -C /tmp
+            cmake -S /tmp/SDL3-$SDL_VER -B /tmp/sdl -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=\$PWD/$sdl \
+                -DCMAKE_INSTALL_LIBDIR=lib -DSDL_STATIC=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF >/dev/null
+            ninja -C /tmp/sdl install >/dev/null"
+    fi
+    # SDL's own link flags would put build/debian/sdl3/lib in the rpath
     d=dist/ki-custom-ultra-linux
-    make DIST=$d dist
+    abs=/work/$(basename "$PWD")/$sdl
+    in_debian env PKG_CONFIG_PATH=$abs/lib/pkgconfig make OBJDIR=build/debian/obj PROG=build/debian/ki-custom-ultra \
+        PORT_BUILD=build-debian SDL_LIBS="-L$abs/lib -lSDL3" DIST=$d dist
     mkdir -p $d/lib
-    cp "$so" $d/lib/libSDL3.so.0
+    cp $sdl/lib/libSDL3.so.0 $d/lib/libSDL3.so.0
+    need=$(objdump -T $d/ki-custom-ultra $d/lib/libSDL3.so.0 | grep -o 'GLIBC_2\.[0-9]*' | sort -uV | tail -n1)
+    echo "linux: needs $need or newer"
     third_party_notes linux > $d/THIRD-PARTY.txt
     zip_up $d linux
 }
@@ -157,9 +226,58 @@ https://github.com/brechtsanders/winlibs_mingw.
 EOF
 }
 
+# the files of new/ that old/ lacks or has with other bytes, copied to out/;
+# THIRD-PARTY.txt, which differs per system, only if more than its version did
+changed() {         # old new out from
+    (cd "$2" && find . -type f) | sort | while read -r f; do
+        cmp -s "$1/$f" "$2/$f" && continue
+        [ "$f" = ./THIRD-PARTY.txt ] && sed "1s/ $VERSION:/ $4:/" "$2/$f" | cmp -s "$1/$f" - && continue
+        if [ -f "$3/$f" ] && ! cmp -s "$2/$f" "$3/$f"; then
+            echo "release.sh: $f differs between the Windows and Linux releases" >&2; exit 1
+        fi
+        mkdir -p "$3/$(dirname "$f")"
+        cp -p "$2/$f" "$3/$f"
+    done
+}
+
+patch() {           # [from version]
+    from=${1:-$(grep -m2 '^## ' CHANGELOG.md | tail -n1 | cut -d' ' -f2)}
+    [ "$from" != "$VERSION" ] || { echo "release.sh: no version before $VERSION in CHANGELOG.md" >&2; exit 1; }
+    st=dist/stage-patch out=dist/ki-custom-ultra-$VERSION-patch.zip
+    rm -rf $st "$out"
+    mkdir -p $st/p/ki-custom-ultra
+    gone=
+    for sys in windows linux; do
+        z=dist/ki-custom-ultra-$from-$sys-x64.zip
+        [ -f "$z" ] || { echo "release.sh: no $z to patch from" >&2; exit 1; }
+        [ -d dist/ki-custom-ultra-$sys ] || { echo "release.sh: no dist/ki-custom-ultra-$sys (tools/release.sh $sys)" >&2; exit 1; }
+        unzip -q "$z" -d $st/$sys
+        changed $st/$sys/ki-custom-ultra dist/ki-custom-ultra-$sys $st/p/ki-custom-ultra $from
+        gone="$gone$( (cd $st/$sys/ki-custom-ultra && find . -type f) | sort | while read -r f; do
+            [ -e "dist/ki-custom-ultra-$sys/$f" ] || echo "  ${f#./} ($sys)"; done)"
+    done
+    check_clean $st/p
+    {
+        echo "ki-custom-ultra $from -> $VERSION patch"
+        echo
+        echo "Extract this zip where the $from ki-custom-ultra/ folder is (Windows or"
+        echo "Linux) and let it replace the files. Your roms/, data/ and projects/ stay."
+        echo "The other system's files come along and can be deleted (Windows:"
+        echo "ki-custom-ultra.exe; Linux: ki-custom-ultra and lib/)."
+        echo
+        echo "Files in this patch:"
+        (cd $st/p/ki-custom-ultra && find . -type f ! -name PATCH.txt) | sort | sed 's|^\./|  |'
+        if [ -n "$gone" ]; then echo; echo "No longer used (can be deleted):"; echo "$gone"; fi
+    } > $st/p/ki-custom-ultra/PATCH.txt
+    (cd $st/p && zip -qr -9 -X "../../$(basename "$out")" ki-custom-ultra)
+    rm -rf $st
+    echo "$out: $(du -h "$out" | cut -f1)"
+}
+
 case "${1:-all}" in
 windows) windows ;;
 linux) linux ;;
 all) windows; linux ;;
-*) echo "usage: tools/release.sh windows|linux|all" >&2; exit 2 ;;
+patch) patch "${2:-}" ;;
+*) echo "usage: tools/release.sh windows|linux|all|patch [FROM]" >&2; exit 2 ;;
 esac

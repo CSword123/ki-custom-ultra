@@ -13,6 +13,8 @@
 #   make dist       dist/ki-custom-ultra/: the program and its tools, no game
 #                   data (players add kinst.zip and kinst.chd in roms/)
 #   make release    the release zips for Windows and Linux (tools/release.sh)
+#   make patch      after make release: the patch zip from the version before
+#                   (FROM=x.yy to choose it) to this one
 #   make windows    cross-build build-win/ki-custom-ultra.exe (+ SDL3.dll) with
 #                   MinGW-w64 or llvm-mingw:
 #                     make windows SDL3_DIR=/path/SDL3-x.y.z/x86_64-w64-mingw32
@@ -61,11 +63,13 @@ endif
 # a GUI program (no console window); the C++ runtime linked in
 PLAT_LIBS := -mwindows -static-libgcc -static-libstdc++
 else
-OBJDIR   := build/obj
-PROG     := ki-custom-ultra
+# OBJDIR, PROG and PORT_BUILD (ki1-port's build folder) can be moved, for
+# the release's build in Debian (tools/release.sh linux)
+OBJDIR   ?= build/obj
+PROG     ?= ki-custom-ultra
 CXX      ?= c++
 CC       ?= cc
-PORT_BUILD := build
+PORT_BUILD ?= build
 SDL_CFLAGS := $(shell pkg-config --cflags sdl3)
 SDL_LIBS   := $(shell pkg-config --libs sdl3)
 # the C++ runtime linked in, and the release's own libSDL3.so.0 in lib/
@@ -102,7 +106,7 @@ RECOMP_FILES := $(RECOMP)/recomp.py $(RECOMP)/functions.txt \
                 $(patsubst $(KI1_PORT)/include/%,$(RECOMP)/include/%,$(wildcard $(KI1_PORT)/include/ki1/*.h)) \
                 $(RECOMP)/glue.c $(RECOMP)/include/kcu_host.h
 
-.PHONY: all run catalog clean windows dist release release-windows release-linux FORCE
+.PHONY: all run catalog clean windows dist release release-windows release-linux patch FORCE
 all: $(PROG) $(PY_COPIES) $(RECOMP_FILES)
 
 $(RECOMP)/recomp.py: $(KI1_PORT)/tools/recomp.py
@@ -134,7 +138,7 @@ build/py/%.py: ../ki1-decomp/tools/%.py
 
 # ki1-port's own make decides whether the library is up to date
 $(KI1_LIB): FORCE
-	$(MAKE) -C $(KI1_PORT) lib TARGET=$(TARGET) $(if $(SDL3_DIR),SDL3_DIR=$(abspath $(SDL3_DIR))) \
+	$(MAKE) -C $(KI1_PORT) lib TARGET=$(TARGET) BUILD=$(PORT_BUILD) $(if $(SDL3_DIR),SDL3_DIR=$(abspath $(SDL3_DIR))) \
 		$(if $(filter windows,$(TARGET)),CROSS=$(CROSS))
 
 $(PROG): $(OBJS) $(KI1_LIB)
@@ -190,6 +194,8 @@ release-windows:
 	tools/release.sh windows
 release-linux:
 	tools/release.sh linux
+patch:
+	tools/release.sh patch $(FROM)
 
 clean:
 	rm -rf build/obj build-win ki-custom-ultra dist

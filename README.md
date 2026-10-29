@@ -18,7 +18,13 @@ is extracted. It needs neither ki1-decomp nor ki1-port.
 | zip | has | needs |
 |---|---|---|
 | `ki-custom-ultra-VERSION-windows-x64.zip` | `ki-custom-ultra.exe`, `SDL3.dll`, `python/` (embeddable Python 3.14), `mingw64/` (the part of MinGW-w64 gcc 16 that compiles the game code) | Windows 10 or 11, 64-bit |
-| `ki-custom-ultra-VERSION-linux-x64.zip` | `ki-custom-ultra`, `lib/libSDL3.so.0` | x86-64, a recent glibc, `python3` and `gcc` (or `$KI_CC`, e.g. clang) |
+| `ki-custom-ultra-VERSION-linux-x64.zip` | `ki-custom-ultra`, `lib/libSDL3.so.0` | x86-64, glibc 2.41 or newer (Debian 13, Ubuntu 25.04, Fedora 42 or later), `python3` and `gcc` (or `$KI_CC`, e.g. clang) |
+
+Already have the version before? The `ki-custom-ultra-VERSION-patch.zip`
+has only the files that changed since it, for both systems: extract it
+over your `ki-custom-ultra/` folder and let it replace the files. The
+other system's files that come along can be deleted; `PATCH.txt` in it
+lists them all.
 
 1. Extract the zip.
 2. Put your own MAME `kinst` set in `ki-custom-ultra/roms/`: `kinst.zip` and
@@ -136,6 +142,7 @@ make -C ../ki1-decomp disasm        # building only: asm/seg0, for seg0's functi
 make run                            # the editor (Dear ImGui + SDL3)
 make dist                           # dist/ki-custom-ultra/: what can be handed out
 make release                        # dist/ki-custom-ultra-VERSION-{windows,linux}-x64.zip
+make patch                          # dist/ki-custom-ultra-VERSION-patch.zip, from the version before
 ```
 Building needs ki1-port and ki1-decomp next to this folder. A built copy
 does not: `make dist` and `make release` copy what it uses from them.
@@ -206,7 +213,12 @@ zips from `make dist`. It adds the parts that make them stand alone:
   gcc's link spec names for a DLL. It is ~80 MB, against ~1 GB for the
   whole toolchain.
 - **Linux**: `lib/libSDL3.so.0`, found through the program's
-  `$ORIGIN/lib` rpath. The C++ runtime is linked in.
+  `$ORIGIN/lib` rpath. The C++ runtime is linked in. The program, SDL3
+  (from source) and `libki1.a` are built in Debian 13 (trixie), so the zip
+  runs on its glibc (2.41) and newer rather than only on the build
+  machine's: Debian's official image is unpacked into `build/debian-root/`
+  and run with bubblewrap (`bwrap`) as root of a user namespace, without
+  docker or root.
 
 The editor uses `python\python.exe` and `mingw64\bin\gcc.exe` when they
 are there and `KI_PYTHON` / `KI_CC` are not set. When started from another

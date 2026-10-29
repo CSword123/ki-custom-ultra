@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.02 (2026-10-29)
+
+Bug fix.
+
+- **build** and the dump of a project failed when the project's path had a
+  space in it (`C:\Users\...\Saved Games\...`): the path went to
+  `kiultra.py` unquoted, was split in two, and `kiultra.py` stopped with
+  "unrecognized arguments". It is now quoted, as the editor's other paths.
+- A patch zip, `ki-custom-ultra-0.02-patch.zip`, updates a 0.01 folder
+  (Windows or Linux) in place: extract it over the folder (`make patch`).
+- Linux: the release is built in Debian 13 (trixie), with SDL3 built there
+  from source, so it runs on glibc 2.41 and newer. 0.01 needed the build
+  machine's glibc 2.43.
+
 ## 0.01 (2026-10-28)
 
 First release.
