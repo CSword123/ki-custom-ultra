@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.03 (2026-10-30)
+
+Move tabs checked, move names coloured.
 
 - Move tabs checked for every fighter against the game's commands:
   - Fulgore's Eye Laser m96 (the combo version) is in **Linkers**. Its hit
@@ -15,6 +17,9 @@
 - Buttons in move names are coloured by strength: quick light blue, medium
   yellow, fierce red.
 - The **record** column is now **reaction**.
+- A patch zip, `ki-custom-ultra-0.03-patch.zip`, updates a 0.02 folder
+  (Windows or Linux) in place: extract it over the folder. The move
+  catalog is remade on the next start.
 
 ## 0.02 (2026-10-29)
 
