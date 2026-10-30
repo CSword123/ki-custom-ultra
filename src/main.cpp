@@ -13,6 +13,7 @@
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -202,6 +203,50 @@ static std::string move_label(const json &m)
     snprintf(buf, sizeof buf, "%s%s   m%d, %d hit%s", m.value("label", std::string("?")).c_str(),
              m.contains("shadow") ? " [shadow]" : "", m["id"].get<int>(), h, h == 1 ? "" : "s");
     return buf;
+}
+
+/* text with the buttons in their strength's colour, as ki1-port's move list:
+ * quick (LP, LK) light blue, medium yellow, fierce (HP, HK) red; a button
+ * is a whole word (e.g. "B+HP", "close MK", "D DF F + LP") */
+static void strength_text_at(ImVec2 pos, const char *s, ImU32 base)
+{
+    static const ImU32 STRENGTH[3] = {IM_COL32(115, 214, 255, 255), IM_COL32(255, 230, 33, 255),
+                                      IM_COL32(255, 49, 33, 255)};
+    ImDrawList *dl = ImGui::GetWindowDrawList();
+    const char *run = s;
+    for (const char *p = s; *p; p++) {
+        const char *q = strchr("LMH", *p);
+        if (!q || (p[1] != 'P' && p[1] != 'K') || (p > s && isalnum((unsigned char)p[-1])) ||
+            isalnum((unsigned char)p[2]))
+            continue;
+        dl->AddText(pos, base, run, p);
+        pos.x += ImGui::CalcTextSize(run, p).x;
+        dl->AddText(pos, STRENGTH[q - "LMH"], p, p + 2);
+        pos.x += ImGui::CalcTextSize(p, p + 2).x;
+        run = p + 2;
+        p++;
+    }
+    dl->AddText(pos, base, run);
+}
+
+// a line of text with coloured buttons (hover works as for ImGui::Text)
+static void strength_text(const std::string &s)
+{
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImGui::CalcTextSize(s.c_str()));
+    strength_text_at(pos, s.c_str(), ImGui::GetColorU32(ImGuiCol_Text));
+}
+
+// a selectable whose text has coloured buttons (greyed out when disabled)
+static bool strength_selectable(const std::string &s, ImGuiSelectableFlags flags)
+{
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+    bool r = ImGui::Selectable(("##" + s).c_str(), false, flags, ImVec2(0, ImGui::GetTextLineHeight()));
+    if (flags & ImGuiSelectableFlags_Disabled)
+        ImGui::GetWindowDrawList()->AddText(pos, ImGui::GetColorU32(ImGuiCol_TextDisabled), s.c_str());
+    else
+        strength_text_at(pos, s.c_str(), ImGui::GetColorU32(ImGuiCol_Text));
+    return r;
 }
 
 /* "fast" defaults to on for moves that morph into the opponent (catalog
@@ -889,7 +934,8 @@ static void record_combo(App &a, int c, Segment &s)
         ImGui::EndCombo();
     }
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("hit record for this segment's hits: light / heavy (big reaction) / lifts (launches P2)\n"
+        ImGui::SetTooltip("reaction: the hit record for this segment's hits, i.e. how P2 reacts:\n"
+                          "light / heavy (big reaction) / lifts (launches P2)\n"
                           "default: the stock ultra's first; own: the move's records, as the game plays it\n"
                           "(keep P2 standing still swaps launching ones unless this piece ends the ultra)");
 }
@@ -901,7 +947,7 @@ static void segment_list(App &a, int c, std::vector<Segment> &v, const char *id)
     if (ImGui::BeginTable("segs", 10, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV)) {
         ImGui::TableSetupColumn("segment", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableSetupColumn("hits", ImGuiTableColumnFlags_WidthFixed, 40);
-        ImGui::TableSetupColumn("record", ImGuiTableColumnFlags_WidthFixed, 80);
+        ImGui::TableSetupColumn("reaction", ImGuiTableColumnFlags_WidthFixed, 80);
         ImGui::TableSetupColumn("loops", ImGuiTableColumnFlags_WidthFixed, 72);
         ImGui::TableSetupColumn("1 tick", ImGuiTableColumnFlags_WidthFixed, 45);
         ImGui::TableSetupColumn("chain", ImGuiTableColumnFlags_WidthFixed, 40);
@@ -960,7 +1006,7 @@ static void segment_list(App &a, int c, std::vector<Segment> &v, const char *id)
                     ImGui::SetTooltip("%s\n%s\nRemove it to preview or build.", label.c_str(),
                                       crash_tip(a, *find_move(a, c, s.move)).c_str());
             } else {
-                ImGui::TextUnformatted(label.c_str());
+                strength_text(label);
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip("%s", label.c_str());
             }
@@ -1065,8 +1111,7 @@ static void palette(App &a)
             Segment s;
             s.index = u["index"].get<int>();
             std::string l = seg_label(a, c, s) + "  " + std::to_string(u["hits"].get<int>()) + " hits";
-            if (ImGui::Selectable(l.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick) &&
-                ImGui::IsMouseDoubleClicked(0))
+            if (strength_selectable(l, ImGuiSelectableFlags_AllowDoubleClick) && ImGui::IsMouseDoubleClicked(0))
                 add_segment(a, s);
         }
         ImGui::EndTabItem();
@@ -1102,8 +1147,7 @@ static void palette(App &a)
             bool crash = crashes(m, 0);
             if (crash)
                 l += "  [crashes]";
-            if (ImGui::Selectable(l.c_str(), false,
-                                  crash ? ImGuiSelectableFlags_Disabled : ImGuiSelectableFlags_AllowDoubleClick) &&
+            if (strength_selectable(l, crash ? ImGuiSelectableFlags_Disabled : ImGuiSelectableFlags_AllowDoubleClick) &&
                 !crash && ImGui::IsMouseDoubleClicked(0)) {
                 Segment s;
                 s.stock = false;

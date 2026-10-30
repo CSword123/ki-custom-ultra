@@ -18,13 +18,20 @@ JSON file:
                                                      heavy (reaction 0x98) or lifts (launcher)
 Moves also have label (e.g. "close MK", "crouch LP", "B+HP", "D DF F + LP"),
 labels, group (standing, crouching, jumping, command, chain) and order.
-Openers (opener: true) are the normals and specials an auto-double may follow
-(its prev-move condition names them), i.e. what starts a combo: e.g.
-Jago's Wind Kick and Laser Sword m50, jump-ins, B*+HP; not Tiger Fury, which
-no auto-double follows. The combo-only ones among them are the linkers.
+Openers (opener: true) are the normals and specials an auto-double (a
+button-only command) may follow (its prev-move condition names them), i.e.
+what starts a combo: e.g. Jago's Wind Kick and Laser Sword m50, jump-ins,
+B*+HP; not Tiger Fury, which no auto-double follows, nor Fulgore's Reflect,
+which only special follow-ups (Plasma Slice m83-85) name. The combo-only
+ones among them are the linkers.
 Linkers are the combo-only specials (combo>= or last-move) that an
-auto-double may follow (its prev-move condition names them), e.g. Jago's
-Laser Sword m87, Spinal's Soul Sword m88/m102; they are grouped by name.
+auto-double may follow, e.g. Jago's Laser Sword m87, Spinal's Soul Sword
+m88/m102, Fulgore's Eye Laser m96 (its hit is the projectile, so its script
+has none); they are grouped by name. A combo-only special that only another
+special follows is an ender (Combo's Rollercoaster m36, which sets the
+combo-ender flag, op 18 DC 01, and only the Flying Knee m65 follows).
+Combo breakers (the opp-combo condition: being hit) are labelled
+"[Combo Breaker]" and have breaker: true.
 
 Moves that crash the game when played in an ultra have crashes: [swing, ...]
 (0 the move itself) and crashes_against: [opponent, ...], from
@@ -122,6 +129,7 @@ def command_label(M, mode, mask, toks, c=0):
         elif 0x40 <= a < 0xE0:                  # buttons inside the motion (e.g. HQ ... HQ)
             dirs.append("+".join(SF[i] for i in range(6) if a & (1 << i)) or f"b{a:02X}")
     stance = STANCE[mode] if mode != 1 else ""   # list 1 repeats list 0
+    breaker = " [Combo Breaker]" if any(a == 0xE8 for a, _, _ in toks) else ""   # opp-combo: being hit
     group = "finisher" if danger is not None else None
     if danger is not None:
         # danger(0) is the ultra (0x88033F06); 1-3 inferred from the
@@ -134,25 +142,18 @@ def command_label(M, mode, mask, toks, c=0):
         motion = " ".join(dirs)
         name = MN.special_name(c, motion, btn)
         text = f"{motion} + {btn}"
-        label = f"{stance}{name} ({text})" if name else f"{stance}{text}"
+        label = (f"{stance}{name} ({text})" if name else f"{stance}{text}") + breaker
         if not group and (combo or prev):
             group = "ender"                     # combo enders / linkers
         return label, "special", group, close
     if dirs:
-        label = f"{stance}{dirs[0]}+{btn}"
+        label = f"{stance}{dirs[0]}+{btn}{breaker}"
         if not group and (combo or prev):
             group = "auto-double"
         return label, "command", group, close
     if not group and (combo or prev):
         group = "auto-double"                   # normals that follow an opener
     return f"{stance}{'close ' if close else 'far ' if far else ''}{btn}", "normal", group, close
-
-
-def hits_whole(M, seg, start):
-    """hitboxes in a script through its bank switches (linkers without any,
-    e.g. Glacius' teleport m58 or Fulgore's Eye Laser projectile, can't do
-    anything in an ultra and stay in "other")"""
-    return sum(1 for a, _, _ in M.script(seg, start, limit=600) if not seg.b(a) and seg.b(a + 1) == 4)
 
 
 def fighter(M, seg, c):
@@ -179,10 +180,13 @@ def fighter(M, seg, c):
         if (label, lk, chain, mode, mask) not in e["labels"]:
             e["labels"].append((label, lk, chain, mode, mask))
     ultra_id = seg.b(0x88033F06 + c) if c != 11 else None
-    # moves an auto-double may follow: prev-move (0xE3) passes when the
-    # previous move (+0x1D) is either of its two ids (func_88005D10 at
-    # 0x880061E4). Combo-only specials among them are the linkers.
-    follow = {v for _, _, _, toks, _, _ in M.commands(seg, c) for a, b, x in toks if a == 0xE3 for v in (b, x)}
+    # moves an auto-double (a command without a motion) may follow:
+    # prev-move (0xE3) passes when the previous move (+0x1D) is either of
+    # its two ids (func_88005D10 at 0x880061E4; no move is 0, so a second
+    # id of 0 never matches). Combo-only specials among them are the
+    # linkers; a prev-move on a special (a follow-up) does not count.
+    follow = {v for _, _, _, toks, _, _ in M.commands(seg, c) if not any(a < 0x40 for a, _, _ in toks)
+              for a, b, x in toks if a == 0xE3 for v in (b, x) if v}
     moves, banks = [], {}
     for e in mv:
         info = cmds.get(e["id"], {"kind": "other", "inputs": [], "labels": []})
@@ -204,7 +208,9 @@ def fighter(M, seg, c):
                  {0: "standing", 1: "standing", 2: "crouching", 3: "jumping"}.get(mode, "other"))
             if e["id"] in follow and entry["kind"] in ("normal", "special"):
                 entry["opener"] = True
-            if chain == "ender" and e["id"] in follow and hits_whole(M, seg, e["script"]):
+            if any("opp-combo" in i for i in info["inputs"]):
+                entry["breaker"] = True
+            if chain == "ender" and e["id"] in follow:
                 entry["kind"], entry["group"] = "linker", bare
             elif chain == "ender":
                 # the rest of the combo-only specials end a combo

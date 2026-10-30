@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- Move tabs checked for every fighter against the game's commands:
+  - Fulgore's Eye Laser m96 (the combo version) is in **Linkers**. Its hit
+    is the projectile, so it was left out for having no hitbox.
+  - Spinal's F* B + HK m103 (after Bone Shaker) is in **Linkers**.
+  - Combo's Rollercoaster m36 is in **Enders**: only his Flying Knee
+    follow-up follows it, not an auto-double.
+  - **Openers** counts only auto-doubles (button-only commands), not
+    special follow-ups: Fulgore's Reflect, Sabrewulf's Howl, Combo's B+HK
+    and B+HP and a few normals are no longer listed there.
+- Combo breakers are labelled **[Combo Breaker]**.
+- Buttons in move names are coloured by strength: quick light blue, medium
+  yellow, fierce red.
+- The **record** column is now **reaction**.
+
 ## 0.02 (2026-10-29)
 
 Bug fix.

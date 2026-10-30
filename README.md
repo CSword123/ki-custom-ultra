@@ -60,6 +60,9 @@ licenses of the bundled parts are in `THIRD-PARTY.txt`.
   [Move names](#move-names)). Moves are named from their commands, and the
   specials from the MKKomplete move list.
 - The filter matches the bank, move name or input.
+- Buttons are coloured by strength, as in ki1-port's move list: quick
+  (LP, LK) light blue, medium (MP, MK) yellow, fierce (HP, HK) red.
+- **[Combo Breaker]** marks the combo breakers.
 - Double-click a move to add it to the **build-up** or the **finish**,
   whichever radio button is selected.
 - Moves with a re-press window list their other swings under them
@@ -74,8 +77,9 @@ licenses of the bundled parts are in `THIRD-PARTY.txt`.
   and **finish** (ultra flag 2). Or tick **stock finish** to keep the
   fighter's own finish.
 - Each piece is a row with its hit count and these controls:
-  - **record**: the hit record its hits use (default, the move's own, or
-    one of the stock ultra's light / heavy / lifting records)
+  - **reaction**: how P2 reacts to its hits, i.e. the hit record they use
+    (default, the move's own, or one of the stock ultra's light / heavy /
+    lifting records; `"record"` in the project)
   - **loops**: how many times it plays
   - **1 tick**: one tick per frame, as the stock ultras play
   - **chain**: loops follow the re-press window, as when the button is
@@ -480,16 +484,23 @@ Specials are named from the MKKomplete Killer Instinct (1994) move list
 Openers: the moves an auto-double may follow that are not combo-only,
 i.e. what starts a combo (jump-ins, command normals like B*+HP, and specials
 such as Jago's Wind Kick and Laser Sword m50; not Tiger Fury, which no
-auto-double follows); the **Openers** tab lists them, and they stay in
+auto-double follows, nor Fulgore's Reflect, which only his Plasma Slice
+follow-ups name); the **Openers** tab lists them, and they stay in
 Normals / Specials too. Linkers: combo-only specials (`combo>=` or
-`last-move`) that an auto-double may follow. Auto-double commands name the moves they follow
-(`prev-move`, either of two ids against `+0x1D`, `func_88005D10` at
-`0x880061E4`), e.g. Jago's Laser Sword m87, Spinal's Soul Sword m88/m102,
-Combo's Rollercoaster m36. Many continue in other banks (Rollercoaster
-53, 9, 53), so they are added with **banks** (`"whole": true`: follow the
-bank switches instead of stopping at the first) and **own** records
-(`"record": null`). Linkers without hitboxes (Fulgore's Eye Laser
-projectile, Glacius' teleport m58, which freezes the ultra) stay in Others.
+`last-move`) that an auto-double may follow. Auto-doubles are the
+button-only commands that name the moves they follow (`prev-move`, either
+of two ids against `+0x1D`, `func_88005D10` at `0x880061E4`), e.g. Jago's
+Laser Sword m87, Spinal's Soul Sword m88/m102, Fulgore's Eye Laser m96.
+A `prev-move` on a special (a special follow-up) does not count: Combo's
+Rollercoaster m36 is followed only by his Flying Knee m65 and sets the
+combo-ender flag (`op 18 DC 01`), so it is an ender. Many linkers continue
+in other banks, so they are added with **banks** (`"whole": true`: follow
+the bank switches instead of stopping at the first) and **own** records
+(`"record": null`). A linker whose hit is a projectile (Fulgore's Eye Laser)
+has no hitbox in its script, so it counts 0 hits.
+**[Combo Breaker]** marks the breakers: the specials whose command needs
+`opp-combo` (`0xE8`: being hit), three per fighter. They are in Specials,
+under the special they come from.
 **[shadow]** marks the shadow versions: moves that leave an after-image
 trail (`op 18 F9 n` sets `+0xF9`, which counts down while
 `func_88002424` draws an after-image every other frame). Most set it behind
