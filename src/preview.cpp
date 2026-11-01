@@ -222,4 +222,5 @@ void PreviewClient::reader()
               (why.empty() ? "" : " (" + why + ")") + "; the next preview starts it again (log: " + log_path_ + ")";
     busy_ = false;
     exited_ = true;
+    SDL_CleanupTLS();   // SDL's error buffer for this (non-SDL) thread
 }

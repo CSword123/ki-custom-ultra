@@ -826,6 +826,7 @@ static bool setup_screen(SDL_Window *win, SDL_Renderer *ren, const char *shot)
                 worker.join();
             worker = std::thread([&] {
                 error = prepare_data();
+                SDL_CleanupTLS();   // SDL's error buffer for this (non-SDL) thread
                 working = false;
             });
         }
@@ -1746,6 +1747,9 @@ int main(int argc, char **argv)
         }
         SDL_RenderPresent(ren);
     }
+    // before SDL_Quit: SDL_DestroyProcess finds the pipes to close in the
+    // process's SDL properties, which SDL_Quit frees (~App would be too late)
+    a.preview.shut();
     ImGui_ImplSDLRenderer3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();

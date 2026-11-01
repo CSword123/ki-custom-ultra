@@ -35,6 +35,9 @@ public:
     void request(int fighter, const std::string &ultrap, int max_frames = 1500, int opponent = 6);
     bool crashed() const { return exited_; }   // the server exited (the game crashed)
     void stop();
+    // stop the server and close its pipes; call before SDL_Quit (the
+    // destructor does too, but after SDL_Quit the pipes are not found)
+    void shut();
 
     // what the server is doing, for the status line
     std::string status();
@@ -50,7 +53,6 @@ private:
     bool read_all(void *p, size_t n);
     void send(const std::string &line);
     bool launch(bool append_log);
-    void shut();
     std::string crash_reason();     // the runtime's last "ki1:" line in the log
 
     std::string prog_, data_, log_path_;
