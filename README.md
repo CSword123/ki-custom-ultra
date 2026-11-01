@@ -87,6 +87,10 @@ licenses of the bundled parts are in `THIRD-PARTY.txt`.
   - **full**: keep the follow-through after the last hit
   - **banks**: follow the move through its bank switches
   - **2x**: every other frame, which is on by default for morph finishes
+  - **fall** / **rise** (jump-ins only, before the name): a falling
+    jump-in lands after its hit, a rising one goes straight into the next
+    piece; added from **Openers** they fall, from **Normals** they rise
+    (`"land"` in the project, see [jump-ins](#keeping-p2-standing))
   - the swing to start at, then **up** / **dn** to reorder and **x** to
     remove
   - **clear** empties a whole list.
