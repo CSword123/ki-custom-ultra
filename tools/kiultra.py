@@ -38,6 +38,12 @@ ultra move (the move id in 0x88033F06[c], also used by the CPU):
                                                      first; linkers need it)
              "fast": true,                           every other frame (for pieces that
                                                      morph, op 53: see morphs())
+             "land": true,                           jump-ins: a falling jump-in, its
+                                                     hit and then the fighter's landing
+                                                     frames (with "full": the rest of
+                                                     the swing and the fall before
+                                                     them); without: a rising jump-in,
+                                                     cut at its hit like other pieces
              "full": true}                           keep the follow-through after the
                                                      last hit (keep_standing cuts it
                                                      when another piece follows)
@@ -146,10 +152,12 @@ class Script:
         self.b += out + struct.pack("<I", target)
 
     def copy(self, seg, a, end, reloc=None, filt=None, ticks=None, record=None, cut_after=None,
-             explicit=False):
+             explicit=False, grounded=False):
         """Copy steps [a, end) of a script. reloc(target) -> new target or
         None to drop the branch; filt(op) -> keep?; cut_after: skip the
-        frames after this address (the follow-through after the last hit)"""
+        frames after this address (the follow-through after the last hit);
+        grounded: drop op 1 2E 01 (P1 airborne), for pieces that do not
+        jump (see airborne_mark)"""
         keep = set()
         if cut_after is not None:
             # op 11 [back, threshold] repeats the steps `back` bytes before it
@@ -167,6 +175,8 @@ class Script:
             elif f:
                 self.frame(f, ticks or seg.b(a + 1))
             elif filt and not filt(x):
+                pass
+            elif grounded and airborne_mark(seg, a):
                 pass
             elif kind in ("goto", "br8", "br10"):
                 t = seg.w(a + n - 4)
@@ -317,6 +327,47 @@ def morphs(seg, c, move_id):
     return None
 
 
+_AIRBORNE = {}
+
+
+def airborne(seg, c, move_id):
+    """The move is started from the airborne command list (stance mode 3,
+    func_88003774): a jump-in or an air special"""
+    key = (id(seg), c)
+    if key not in _AIRBORNE:
+        _AIRBORNE[key] = {m for mode, _, _, _, m, _ in M.commands(seg, c) if mode == 3}
+    return move_id in _AIRBORNE[key]
+
+
+def airborne_mark(seg, a):
+    """op 1 2E 01: P1 airborne. Jump-ins, air specials and leaps (Combo's
+    Flying Knee) set it; a piece that does not jump in the ultra (no op 14,
+    or op 14 dropped because the piece is cut) must not, or the game finds
+    an airborne P1 on the ground, runs its landing script and the ultra
+    ends there (preview: bank 13, then stance)"""
+    return not seg.b(a) and seg.b(a + 1) == 1 and seg.b(a + 2) == 0x2E and seg.b(a + 3) == 1
+
+
+def landing(seg, c):
+    """The fighter's touchdown animation: its landing script's (0x88033C40[c],
+    run by the game when a jump lands) bank switches and frames, in order,
+    up to its first branch after a frame. The script's other ops (cancel
+    window, +0xC0, morph undo with op 54, ...) reset fight state an ultra
+    must keep, so they are left out. [("bank", n) | ("frame", addr)]"""
+    out = []
+    for a, _, _ in M.script(seg, seg.w(0x88033C40 + 4 * c), limit=200):
+        if seg.b(a):
+            out.append(("frame", a))
+        elif op_len(seg, a)[1] in ("goto", "br8", "br10") and any(k == "frame" for k, _ in out):
+            break
+        elif seg.b(a + 1) == 1 and seg.b(a + 2) == 0x34:
+            out.append(("bank", seg.b(a + 3)))
+    # bank switches before the frames: only the last one counts
+    first = next((i for i, (k, _) in enumerate(out) if k == "frame"), len(out))
+    lead = [x for x in out[:first] if x[0] == "bank"][-1:]
+    return lead + out[first:]
+
+
 ALIGN_GAP = 20          # op 35 gap for a piece that follows a cut one
 
 
@@ -372,6 +423,14 @@ def compile_fighter(seg, c, spec, base, cap):
                 cut = standing and nxt is not None and not (k + 1 == loops and natural(sg, nxt))
                 # "full": the piece still counts as cut (no jump, P2 kept up,
                 # the next piece re-aligned) but plays to its last frame
+                # "land": a falling jump-in ends with the fighter's landing
+                # (see below). As in the game, where touchdown interrupts the
+                # swing, it lands right after the hit; with "full" the rest of
+                # the swing and the fall come first, but P2's hitstun (~25
+                # frames) runs out before the next piece can hit
+                land = sg["from"] == "move" and bool(sg.get("land"))
+                if land and not airborne(seg, c, sg["move"]):
+                    raise ValueError(f"{M.NAMES[c]} move {sg['move']}: \"land\" is for jump-ins only")
                 tail_cut = cut and not sg.get("full")
                 s.segment += 1
                 if cut:
@@ -388,7 +447,7 @@ def compile_fighter(seg, c, spec, base, cap):
                            filt=(lambda x: x not in (74, 14)) if cut else (lambda x: x != 74),
                            record=sg.get("record"),
                            cut_after=last_hit(steps) if tail_cut else None,
-                           explicit=sg.get("record") is not None)
+                           explicit=sg.get("record") is not None, grounded=cut)
                 elif sg["from"] == "move":
                     swing = int(sg.get("swing", 0))
                     if chain:
@@ -431,12 +490,24 @@ def compile_fighter(seg, c, spec, base, cap):
                         s.overlay = 0
                     if gap is not None:
                         align(s, gap)
+                    # no jump in the ultra (op 14 dropped when cut, or none):
+                    # no airborne mark either (airborne_mark)
+                    grounded = cut or not any(not seg.b(a) and seg.b(a + 1) == 14 for a in steps)
                     for a in steps:
                         n, _ = op_len(seg, a)
                         s.copy(seg, a, a + n, filt=(lambda x: x not in DROP and x != 14) if cut
                                else (lambda x: x not in DROP),
                                ticks=sg.get("ticks"), record=sg.get("record", default_record),
-                               cut_after=tail, explicit=sg.get("record") is not None)
+                               cut_after=tail, explicit=sg.get("record") is not None, grounded=grounded)
+                    if land:
+                        # what the game plays on touchdown (after the jump-in's
+                        # air loop, its last frames repeated by a goto until P1
+                        # lands, when the swing was played in full)
+                        for kind, v in landing(seg, c):
+                            if kind == "bank":
+                                s.op(1, 0x34, v)
+                            else:
+                                s.frame(seg.b(v), sg.get("ticks") or seg.b(v + 1))
                 else:
                     raise ValueError(f"segment source {sg['from']!r}")
 

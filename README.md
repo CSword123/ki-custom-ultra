@@ -455,6 +455,22 @@ jump is dropped (`op 14` sets P1's upward speed), so the landing wait
 (`op 11`, which repeats the frames before it until P1 lands) passes at
 once; the frames an `op 11` jumps back over are never cut.
 
+Jump-ins (moves from the airborne command list, stance 3) come in two
+kinds. Added from **Openers** they are *falling* (`"land": true`, the
+**fall** button in the piece's row): the swing up to its hit, then the
+fighter's landing frames (bank and frames of its landing script,
+`0x88033C40[c]`; its other ops reset fight state and are left out), as
+the game plays a deep jump-in, where touchdown cuts the swing short.
+With **full** the rest of the swing and the fall (the air loop the game
+repeats until touchdown, once) come before the landing, but the hit's
+stun (~25 frames) can run out before the next piece hits: Jago's jump MP
+then drops. Added from **Normals** they are *rising* (**rise**): cut at
+the hit like other pieces. Pieces that do not jump in the ultra (no
+`op 14`, or theirs dropped because they are cut) lose their `op 1 2E 01`
+(P1 airborne): jump-ins, air specials such as Thunder's air Tomahawk m82
+and leaps such as Combo's Flying Knee set it, and with P1 on the ground
+the game landed it at once, ran its landing script and ended the ultra.
+
 The "Ultra Combo!" call (speech event 0x78, sound 0x04F7 in each
 fighter's speech table) comes at the end of every ultra, unless the KO
 happens past a ledge (rooftop stage, type 6): then the game plays the

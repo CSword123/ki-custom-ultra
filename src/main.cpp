@@ -104,6 +104,7 @@ struct Segment {
     int swing = 0;          // start at this swing of the move (re-press target)
     bool whole = false;     // follow the move through its bank switches
     int fast = -1;          // every other frame (1/0; -1: unset, on for moves that morph)
+    bool land = false;      // jump-ins: falling (swing, fall, landing) instead of rising
 };
 
 struct Fighter {
@@ -303,6 +304,13 @@ static bool swing_option(const json &m, int i)
     return m.contains("swings") && i < (int)m["swings"].size() && !m["swings"][i]["frames"].is_null();
 }
 
+/* a jump-in (catalog group "jumping": started from the airborne command
+ * list), which kiultra.py plays rising or, with "land", falling */
+static bool is_jump(const json *m)
+{
+    return m && m->value("group", std::string()) == "jumping";
+}
+
 static std::string seg_label(App &a, int c, const Segment &s)
 {
     char buf[200];
@@ -312,9 +320,9 @@ static std::string seg_label(App &a, int c, const Segment &s)
                  u["phase"].get<int>() == 2 ? ", finish" : "");
     } else {
         const json *m = find_move(a, c, s.move);
-        snprintf(buf, sizeof buf, "%s%s%s  (m%d)", m ? m->value("label", std::string("?")).c_str() : "?",
+        snprintf(buf, sizeof buf, "%s%s%s%s  (m%d)", m ? m->value("label", std::string("?")).c_str() : "?",
                  s.swing > 0 ? swing_name(s.swing).c_str() : "", m && m->contains("shadow") ? " [shadow]" : "",
-                 s.move);
+                 !is_jump(m) ? "" : s.land ? " (falling)" : " (rising)", s.move);
     }
     return buf;
 }
@@ -359,6 +367,8 @@ static json seg_json(const Segment &s)
         j["whole"] = true;
     if (s.fast >= 0 && !s.stock)
         j["fast"] = s.fast == 1;
+    if (s.land && !s.stock)
+        j["land"] = true;
     return j;
 }
 
@@ -377,6 +387,7 @@ static Segment seg_from(const json &j)
     s.swing = j.value("swing", 0);
     s.whole = j.value("whole", false);
     s.fast = j.contains("fast") ? (int)j.value("fast", false) : -1;
+    s.land = j.value("land", false);
     return s;
 }
 
@@ -1000,6 +1011,18 @@ static void segment_list(App &a, int c, std::vector<Segment> &v, const char *id)
                     ImGui::SetTooltip("swing the piece starts at (B, C: what pressing the button again jumps to)");
                 ImGui::SameLine();
             }
+            if (!s.stock && is_jump(find_move(a, c, s.move))) {
+                if (ImGui::SmallButton(s.land ? "fall" : "rise"))
+                    s.land = !s.land;
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip(s.land ? "falling jump-in: the swing up to its hit, then the fighter's landing, as the\n"
+                                               "game plays a deep jump-in. With \"full\" also the rest of the swing and the\n"
+                                               "fall first (P2 may recover before the next piece: check the preview).\n"
+                                               "(click: rising)"
+                                             : "rising jump-in: the swing up to its hit, then the next piece\n"
+                                               "(click: falling, ending with the landing)");
+                ImGui::SameLine();
+            }
             std::string label = seg_label(a, c, s);
             if (crashes(a, c, s)) {
                 ImGui::TextColored(ImVec4(1, 0.35f, 0.3f, 1), "%s  [crashes]", label.c_str());
@@ -1143,7 +1166,9 @@ static void palette(App &a)
                 continue;
             std::string g = m.value("group", std::string("other"));
             if (g != group)
-                ImGui::SeparatorText(g.c_str());
+                ImGui::SeparatorText(g != "jumping" ? g.c_str()
+                                     : !strcmp(kind, "opener") ? "jumping (falling: hit, then landing)"
+                                                               : "jumping (rising: cut at the hit)");
             group = g;
             bool crash = crashes(m, 0);
             if (crash)
@@ -1158,6 +1183,9 @@ static void palette(App &a)
                     s.whole = m.contains("more_banks");
                     s.record = -2;
                 }
+                // jump-ins: falling from Openers (they start the combo and
+                // land), rising from Normals
+                s.land = !strcmp(kind, "opener") && is_jump(&m);
                 add_segment(a, s);
             }
             bool hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled);

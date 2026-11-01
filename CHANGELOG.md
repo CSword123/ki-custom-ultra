@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+Jump-ins work in ultras, falling or rising.
+
+- Jump-ins, air specials (Thunder's air Tomahawk) and leaps (Combo's
+  Flying Knee, when another piece follows) ended the ultra a few frames
+  in: they mark the fighter airborne, but the ultra keeps it on the
+  ground, so the game landed it and stopped the ultra. The mark is now
+  dropped from every piece that does not jump.
+- Jump-ins added from **Openers** are *falling*: the hit, then the
+  fighter's landing animation, as the game plays a deep jump-in (with
+  **full**: the rest of the swing and the fall first, which can drop the
+  combo). From **Normals** they are *rising*: cut at the hit. The
+  **fall** / **rise** button in a jump-in's row switches it (`"land": true`
+  in the project).
+- Memory leaks on exit (valgrind): the preview server's pipes were never
+  closed, and SDL's error buffer for the editor's own threads was not freed.
+
 ## 0.03 (2026-10-30)
 
 Move tabs checked, move names coloured.
