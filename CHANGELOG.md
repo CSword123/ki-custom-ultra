@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.04 (2026-11-01)
 
-Jump-ins work in ultras, falling or rising.
+Jump-ins work in ultras, falling or rising; memory leak fixes.
 
 - Jump-ins, air specials (Thunder's air Tomahawk) and leaps (Combo's
   Flying Knee, when another piece follows) ended the ultra a few frames
@@ -17,6 +17,9 @@ Jump-ins work in ultras, falling or rising.
   in the project).
 - Memory leaks on exit (valgrind): the preview server's pipes were never
   closed, and SDL's error buffer for the editor's own threads was not freed.
+- A patch zip, `ki-custom-ultra-0.04-patch.zip`, updates a 0.03 folder
+  (Windows or Linux) in place: extract it over the folder. The move
+  catalog is remade on the next start.
 
 ## 0.03 (2026-10-30)
 
